@@ -1,4 +1,4 @@
-# EchoSync 🎙️⚡
+# EchoSync 
 
 > **Ambient Intelligence & Real-Time Proximity Matching Platform**
 
@@ -6,7 +6,7 @@ EchoSync is a privacy-first, low-latency proximity discovery system that passive
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
 * **On-Device PII Scrubbing:** Utilizes local LLMs (Llama-3-8B) to redact sensitive data before any vector embedding is processed.
 * **15-Meter Match Radar:** Real-time spatial tracking and visual sonar interface displaying passive and active connections.
@@ -16,7 +16,7 @@ EchoSync is a privacy-first, low-latency proximity discovery system that passive
 
 ---
 
-## 🏗️ Architecture & Technology Stack
+##  Architecture & Technology Stack
 
 ### **Frontend & Dashboard**
 * **Mobile App:** Built with **Flutter** (Cross-platform iOS/Android) featuring native haptic engine integration and custom radial canvas drawing.
@@ -29,7 +29,7 @@ EchoSync is a privacy-first, low-latency proximity discovery system that passive
 
 ---
 
-## 📸 Wireframe & UI Overview
+##  Wireframe & UI Overview
 
 | Desktop Command Center | Mobile Radar & Icebreaker View |
 | :---: | :---: |
@@ -37,7 +37,7 @@ EchoSync is a privacy-first, low-latency proximity discovery system that passive
 
 ---
 
-## 🚀 Quick Start & Installation
+##  Quick Start & Installation
 
 ### Prerequisites
 * **Go** `1.22+`
