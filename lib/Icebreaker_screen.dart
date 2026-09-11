@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
+
 class IcebreakerScreen extends StatelessWidget {
   const IcebreakerScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-
           colors: [
             Color(0xFF121A29),
             Color(0xFF17243A),
@@ -24,17 +22,17 @@ class IcebreakerScreen extends StatelessWidget {
         child: Column(
           children: [
 
-            // PINK LINE
+            // Pink line
             Container(
               height: 2,
+              width: double.infinity,
               color: const Color(0xFFE7839A),
             ),
 
-            // HEADER
+            // Header
             Container(
               height: 62,
-              padding:
-              const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 24,
               ),
 
@@ -42,15 +40,16 @@ class IcebreakerScreen extends StatelessWidget {
                 border: Border(
                   bottom: BorderSide(
                     color: Color(0xFF657187),
+                    width: 1,
                   ),
                 ),
               ),
 
-              child: Row(
+              child: const Row(
                 mainAxisAlignment:
                 MainAxisAlignment.spaceBetween,
 
-                children: const [
+                children: [
 
                   Text(
                     'EchoSync',
@@ -71,10 +70,10 @@ class IcebreakerScreen extends StatelessWidget {
               ),
             ),
 
+            // Content
             Expanded(
               child: Padding(
-                padding:
-                const EdgeInsets.fromLTRB(
+                padding: const EdgeInsets.fromLTRB(
                   28,
                   36,
                   28,
@@ -102,6 +101,7 @@ class IcebreakerScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 31,
                         fontWeight: FontWeight.w400,
+                        letterSpacing: -1,
                       ),
                     ),
 
@@ -151,6 +151,7 @@ class IcebreakerScreen extends StatelessWidget {
                         fontSize: 18,
                         height: 1.55,
                         fontWeight: FontWeight.w600,
+                        color: Color(0xFFE8EBEF),
                       ),
                     ),
 
@@ -158,8 +159,7 @@ class IcebreakerScreen extends StatelessWidget {
 
                     Container(
                       height: 1,
-                      color:
-                      const Color(0xFF788598),
+                      color: const Color(0xFF788598),
                     ),
 
                     const SizedBox(height: 16),
@@ -169,13 +169,24 @@ class IcebreakerScreen extends StatelessWidget {
                       height: 52,
 
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Hello sent 👋',
+                              ),
+                            ),
+                          );
+                        },
 
                         style:
                         OutlinedButton.styleFrom(
                           side: const BorderSide(
                             color: Color(0xFFD0D7E1),
                           ),
+
                           shape:
                           const RoundedRectangleBorder(
                             borderRadius:

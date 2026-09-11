@@ -1,8 +1,6 @@
-import 'dart:math' as math;
-import 'package:echo_sync/radar_screen.dart';
 import 'package:flutter/material.dart';
-
-import 'Icebreaker_screen.dart';
+import 'radar_screen.dart';
+import 'icebreaker_screen.dart';
 
 void main() {
   runApp(const EchoSyncApp());
@@ -15,8 +13,10 @@ class EchoSyncApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'EchoSync',
       theme: ThemeData(
         brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF111A29),
         fontFamily: 'Arial',
       ),
       home: const EchoSyncHome(),
@@ -32,30 +32,32 @@ class EchoSyncHome extends StatefulWidget {
 }
 
 class _EchoSyncHomeState extends State<EchoSyncHome> {
-  int currentIndex = 0;
+  int selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF111A29),
 
-      body: currentIndex == 0
+      body: selectedIndex == 0
           ? const RadarScreen()
           : const IcebreakerScreen(),
 
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
+        currentIndex: selectedIndex,
         onTap: (index) {
           setState(() {
-            currentIndex = index;
+            selectedIndex = index;
           });
         },
+
         backgroundColor: const Color(0xFF111A29),
         elevation: 0,
+
         type: BottomNavigationBarType.fixed,
 
-        selectedItemColor: const Color(0xFFE0E5ED),
-        unselectedItemColor: const Color(0xFF7E8796),
+        selectedItemColor: const Color(0xFFE1E6ED),
+        unselectedItemColor: const Color(0xFF7C8797),
 
         selectedFontSize: 11,
         unselectedFontSize: 11,

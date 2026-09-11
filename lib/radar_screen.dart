@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class RadarScreen extends StatefulWidget {
   const RadarScreen({super.key});
@@ -10,22 +11,34 @@ class RadarScreen extends StatefulWidget {
 
 class _RadarScreenState extends State<RadarScreen>
     with SingleTickerProviderStateMixin {
+  late AnimationController radarController;
 
-  late AnimationController controller;
+  bool showNotification = false;
 
   @override
   void initState() {
     super.initState();
 
-    controller = AnimationController(
+    radarController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
+
+    // Simulate nearby match detection.
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+
+      setState(() {
+        showNotification = true;
+      });
+
+      HapticFeedback.selectionClick();
+    });
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    radarController.dispose();
     super.dispose();
   }
 
@@ -48,18 +61,19 @@ class _RadarScreenState extends State<RadarScreen>
         child: Column(
           children: [
 
-            // PINK LINE
+            // Pink Figma line
             Container(
               height: 2,
               width: double.infinity,
               color: const Color(0xFFE7839A),
             ),
 
-            // HEADER
+            // Header
             Container(
               height: 62,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+              ),
               decoration: const BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
@@ -90,8 +104,9 @@ class _RadarScreenState extends State<RadarScreen>
                       Container(
                         width: 7,
                         height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEA879D),
+                        decoration:
+                        const BoxDecoration(
+                          color: Color(0xFFE8899D),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -111,84 +126,51 @@ class _RadarScreenState extends State<RadarScreen>
               ),
             ),
 
-            // RADAR AREA
+            // Radar
             Expanded(
               child: Stack(
                 children: [
 
                   Center(
                     child: AnimatedBuilder(
-                      animation: controller,
+                      animation: radarController,
                       builder: (context, child) {
-
                         return CustomPaint(
-                          size: const Size(330, 390),
+                          size: const Size(
+                            330,
+                            390,
+                          ),
                           painter: RadarPainter(
-                            progress: controller.value,
+                            progress:
+                            radarController.value,
                           ),
                         );
                       },
                     ),
                   ),
 
-                  // MATCH INFORMATION
-                  Positioned(
+                  // Match card
+                  const Positioned(
                     left: 28,
                     right: 28,
                     bottom: 18,
+                    child: RadarMatchCard(),
+                  ),
 
-                    child: Container(
-                      padding: const EdgeInsets.only(
-                        top: 14,
-                      ),
-
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: Color(0xFF778296),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-
-                      child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
-                        children: const [
-
-                          Text(
-                            'haptic triggered · match nearby',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF9BA5B5),
-                            ),
-                          ),
-
-                          SizedBox(height: 8),
-
-                          Text(
-                            'Rust Programming',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-
-                          SizedBox(height: 4),
-
-                          Text(
-                            'USR_7x2 · ~6 m away',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF9BA5B5),
-                            ),
-                          ),
-                        ],
+                  // Reactive notification
+                  if (showNotification)
+                    Positioned(
+                      left: 24,
+                      right: 24,
+                      top: 22,
+                      child: MatchNotification(
+                        onClose: () {
+                          setState(() {
+                            showNotification = false;
+                          });
+                        },
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -198,8 +180,165 @@ class _RadarScreenState extends State<RadarScreen>
     );
   }
 }
-class RadarPainter extends CustomPainter {
 
+// ============================================================
+// MATCH NOTIFICATION
+// ============================================================
+
+class MatchNotification extends StatelessWidget {
+  final VoidCallback onClose;
+
+  const MatchNotification({
+    super.key,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+
+      child: Container(
+        padding: const EdgeInsets.all(16),
+
+        decoration: BoxDecoration(
+          color: const Color(0xFF202D40),
+          border: Border.all(
+            color: const Color(0xFF7C8A9D),
+            width: .8,
+          ),
+          borderRadius: BorderRadius.circular(4),
+
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(.35),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+
+        child: Row(
+          children: [
+
+            Container(
+              width: 9,
+              height: 9,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8899D),
+                shape: BoxShape.circle,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            const Expanded(
+              child: Column(
+                crossAxisAlignment:
+                CrossAxisAlignment.start,
+                children: [
+
+                  Text(
+                    'Match nearby',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+
+                  SizedBox(height: 4),
+
+                  Text(
+                    'Rust Programming · ~6 m',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFB5C0D0),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            GestureDetector(
+              onTap: onClose,
+              child: const Icon(
+                Icons.close,
+                size: 17,
+                color: Color(0xFF9AA6B7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// RADAR MATCH CARD
+// ============================================================
+
+class RadarMatchCard extends StatelessWidget {
+  const RadarMatchCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(top: 14),
+
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: Color(0xFF778296),
+            width: 1,
+          ),
+        ),
+      ),
+
+      child: const Column(
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+
+        children: [
+
+          Text(
+            'haptic triggered · match nearby',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9BA5B5),
+            ),
+          ),
+
+          SizedBox(height: 8),
+
+          Text(
+            'Rust Programming',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+
+          SizedBox(height: 4),
+
+          Text(
+            'USR_7x2 · ~6 m away',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9BA5B5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// RADAR PAINTER
+// ============================================================
+
+class RadarPainter extends CustomPainter {
   final double progress;
 
   RadarPainter({
@@ -208,19 +347,19 @@ class RadarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-
     final center = Offset(
       size.width / 2,
       size.height / 2,
     );
 
-    final radius = 130.0;
+    const radius = 130.0;
 
-    // RADAR GLOW
-    final glow = Paint()
+    // Glow
+    final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFE7849B).withOpacity(.14),
+          const Color(0xFFE7849B)
+              .withOpacity(.14),
           Colors.transparent,
         ],
       ).createShader(
@@ -233,17 +372,18 @@ class RadarPainter extends CustomPainter {
     canvas.drawCircle(
       center,
       radius,
-      glow,
+      glowPaint,
     );
 
-    // CIRCLES
+    // Rings
     final circlePaint = Paint()
-      ..color = const Color(0xFF9BAAC1).withOpacity(.45)
+      ..color =
+      const Color(0xFF9BAAC1)
+          .withOpacity(.45)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
     for (int i = 1; i <= 4; i++) {
-
       canvas.drawCircle(
         center,
         radius * i / 4,
@@ -251,26 +391,26 @@ class RadarPainter extends CustomPainter {
       );
     }
 
-    // GRID
+    // Grid
     final gridPaint = Paint()
-      ..color = const Color(0xFF9BAAC1).withOpacity(.28)
+      ..color =
+      const Color(0xFF9BAAC1)
+          .withOpacity(.28)
       ..strokeWidth = 1;
 
-    // horizontal
     canvas.drawLine(
       Offset(center.dx - radius, center.dy),
       Offset(center.dx + radius, center.dy),
       gridPaint,
     );
 
-    // vertical
     canvas.drawLine(
       Offset(center.dx, center.dy - radius),
       Offset(center.dx, center.dy + radius),
       gridPaint,
     );
 
-    // diagonal
+    // Diagonal
     canvas.drawLine(
       Offset(
         center.dx - radius * .7,
@@ -295,7 +435,7 @@ class RadarPainter extends CustomPainter {
       gridPaint,
     );
 
-    // SCANNING LINE
+    // Scanning beam
     final angle = progress * math.pi * 2;
 
     final end = Offset(
@@ -313,14 +453,11 @@ class RadarPainter extends CustomPainter {
       scanPaint,
     );
 
-    // CENTER DOT
-    final centerPaint = Paint()
-      ..color = const Color(0xFFE78A9F);
-
+    // Center
     canvas.drawCircle(
       center,
       7,
-      centerPaint,
+      Paint()..color = const Color(0xFFE78A9F),
     );
 
     canvas.drawCircle(
@@ -329,7 +466,7 @@ class RadarPainter extends CustomPainter {
       Paint()..color = const Color(0xFF182334),
     );
 
-    // TARGET
+    // Target
     final target = Offset(
       center.dx + 78,
       center.dy - 48,
@@ -358,8 +495,9 @@ class RadarPainter extends CustomPainter {
       Paint()..color = const Color(0xFF667387),
     );
 
-    // DOTTED CONNECTION
-    final distance = (target - center).distance;
+    // Dotted connection
+    final distance =
+        (target - center).distance;
 
     final direction =
         (target - center) / distance;
@@ -373,13 +511,9 @@ class RadarPainter extends CustomPainter {
     d < distance - 20;
     d += 10
     ) {
-
-      final start = center + direction * d;
-      final finish = center + direction * (d + 5);
-
       canvas.drawLine(
-        start,
-        finish,
+        center + direction * d,
+        center + direction * (d + 5),
         dashPaint,
       );
     }
