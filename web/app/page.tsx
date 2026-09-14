@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Cpu, Radar as RadarIcon, Rss } from "lucide-react";
+import { Activity, Cpu, Radar as RadarIcon, Rss, Mic, LayoutGrid } from "lucide-react";
 
 import { PipelinePanel } from "@/components/pipeline-panel";
 import { RadarPanel } from "@/components/radar-panel";
 import { FeedPanel } from "@/components/feed-panel";
+import { VoiceInterface } from "@/components/voice-interface";
 import { api, connect } from "@/lib/ws";
 import type { Match, Metrics, RadarState, ScrubEvent, ServerMsg } from "@/lib/types";
 
 export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState<"ops" | "voice">("ops");
   const [wsOn, setWsOn] = useState(false);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [scrubs, setScrubs] = useState<ScrubEvent[]>([]);
@@ -92,49 +94,60 @@ export default function Dashboard() {
   const radarLock = !!radar && radar.targets.length > 0;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header wsOn={wsOn} metrics={metrics} />
+    <div className="flex min-h-screen flex-col bg-[#0b1220]">
+      <Header
+        wsOn={wsOn}
+        metrics={metrics}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
 
-      <main className="grid flex-1 grid-cols-1 gap-px bg-line/40 md:grid-cols-3">
-        <section className="flex min-h-[420px] flex-col bg-ink-900">
-          <PanelTitle
-            icon={<Cpu size={13} />}
-            title="PII Scrubbing Pipeline"
-            sub={pipelineUp ? `${metrics!.scrubs_run} transcripts scrubbed` : "waiting for transcripts…"}
-            accent={pipelineUp ? "#E7839A" : "#7C8797"}
-            code={metrics?.pipeline?.toUpperCase()}
-          />
-          <div className="flex-1 overflow-hidden p-4">
-            <PipelinePanel events={scrubs} />
-          </div>
-        </section>
+      {activeTab === "voice" ? (
+        <main className="flex flex-1 flex-col p-4 md:p-6">
+          <VoiceInterface />
+        </main>
+      ) : (
+        <main className="grid flex-1 grid-cols-1 gap-px bg-line/40 md:grid-cols-3">
+          <section className="flex min-h-[420px] flex-col bg-ink-900">
+            <PanelTitle
+              icon={<Cpu size={13} />}
+              title="PII Scrubbing Pipeline"
+              sub={pipelineUp ? `${metrics!.scrubs_run} transcripts scrubbed` : "waiting for transcripts…"}
+              accent={pipelineUp ? "#E7839A" : "#7C8797"}
+              code={metrics?.pipeline?.toUpperCase()}
+            />
+            <div className="flex-1 overflow-hidden p-4">
+              <PipelinePanel events={scrubs} />
+            </div>
+          </section>
 
-        <section className="relative flex min-h-[420px] flex-col bg-ink-900">
-          <PanelTitle
-            icon={<RadarIcon size={13} />}
-            title="Proximity Match Radar"
-            sub={radarLock ? `${radar!.targets.length} targets / ${radar!.radius_m}m` : "no targets · scanning"}
-            accent="#E7839A"
-            code={metrics ? `${metrics!.active_users} users` : "…"}
-          />
-          <div className="flex flex-1 items-center justify-center p-4">
-            <RadarPanel state={radar} />
-          </div>
-        </section>
+          <section className="relative flex min-h-[420px] flex-col bg-ink-900">
+            <PanelTitle
+              icon={<RadarIcon size={13} />}
+              title="Proximity Match Radar"
+              sub={radarLock ? `${radar!.targets.length} targets / ${radar!.radius_m}m` : "no targets · scanning"}
+              accent="#E7839A"
+              code={metrics ? `${metrics!.active_users} users` : "…"}
+            />
+            <div className="flex flex-1 items-center justify-center p-4">
+              <RadarPanel state={radar} />
+            </div>
+          </section>
 
-        <section className="flex min-h-[420px] flex-col bg-ink-900">
-          <PanelTitle
-            icon={<Rss size={13} />}
-            title="Ephemeral Match Feed"
-            sub={lastHeartbeat === "—" ? "awaiting proximity signal" : `last signal ${lastHeartbeat}`}
-            accent="#E7839A"
-            code={metrics ? `TTL ${metrics!.match_ttl_seconds}s` : "…"}
-          />
-          <div className="flex-1 overflow-hidden p-4">
-            <FeedPanel matches={matches} />
-          </div>
-        </section>
-      </main>
+          <section className="flex min-h-[420px] flex-col bg-ink-900">
+            <PanelTitle
+              icon={<Rss size={13} />}
+              title="Ephemeral Match Feed"
+              sub={lastHeartbeat === "—" ? "awaiting proximity signal" : `last signal ${lastHeartbeat}`}
+              accent="#E7839A"
+              code={metrics ? `TTL ${metrics!.match_ttl_seconds}s` : "…"}
+            />
+            <div className="flex-1 overflow-hidden p-4">
+              <FeedPanel matches={matches} />
+            </div>
+          </section>
+        </main>
+      )}
 
       <footer className="flex items-center gap-3 border-t border-line/50 px-5 py-2 text-[10px] text-muted">
         <Activity size={11} className={wsOn ? "text-pulse" : ""} />
@@ -153,16 +166,56 @@ function fetchMetrics(set: (m: Metrics) => void) {
   api<Metrics>("/metrics").then(set).catch(() => undefined);
 }
 
-function Header({ wsOn, metrics }: { wsOn: boolean; metrics: Metrics | null }) {
+function Header({
+  wsOn,
+  metrics,
+  activeTab,
+  setActiveTab,
+}: {
+  wsOn: boolean;
+  metrics: Metrics | null;
+  activeTab: "ops" | "voice";
+  setActiveTab: (tab: "ops" | "voice") => void;
+}) {
   return (
     <header className="flex items-center gap-4 border-b border-line/60 px-5 py-3">
       <div>
         <h1 className="text-sm font-bold tracking-wide text-paper">EchoSync</h1>
         <p className="text-[10px] text-muted">Command Center · ops view</p>
       </div>
-      <div className="ml-auto flex items-center gap-4 text-[11px]">
+
+      {/* Center Navigation Tabs */}
+      <div className="mx-auto flex items-center gap-1 rounded-lg border border-line/30 bg-ink-850 p-1 text-xs">
+        <button
+          onClick={() => setActiveTab("ops")}
+          className={`flex items-center gap-1.5 rounded px-3 py-1 text-[11px] font-medium transition-colors ${
+            activeTab === "ops"
+              ? "bg-line/30 text-white shadow-sm"
+              : "text-muted hover:text-paper"
+          }`}
+        >
+          <LayoutGrid size={13} />
+          Ops Grid
+        </button>
+        <button
+          onClick={() => setActiveTab("voice")}
+          className={`flex items-center gap-1.5 rounded px-3 py-1 text-[11px] font-medium transition-all ${
+            activeTab === "voice"
+              ? "bg-cyan-500/20 text-cyan-300 shadow-[0_0_12px_rgba(0,242,254,0.3)]"
+              : "text-muted hover:text-cyan-300"
+          }`}
+        >
+          <Mic size={13} />
+          EchoSync Voice
+          <span className="rounded bg-cyan-400/20 px-1 py-0.2 text-[8px] font-mono text-cyan-300">
+            NEW
+          </span>
+        </button>
+      </div>
+
+      <div className="flex items-center gap-4 text-[11px]">
         <StatusDot live={wsOn} label={wsOn ? "live" : "reconnecting"} />
-        <span className="font-mono text-muted">
+        <span className="hidden font-mono text-muted sm:inline">
           {metrics ? new Date(metrics.uptime_seconds * 1000).toISOString().substr(11, 8) : "00:00:00"} uptime
         </span>
       </div>
