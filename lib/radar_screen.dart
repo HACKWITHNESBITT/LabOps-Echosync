@@ -461,7 +461,7 @@ class RadarPainter extends CustomPainter {
       canvas.drawCircle(center, radius * i / 4, circlePaint);
     }
 
-    // Grid
+    // //Grid
     final gridPaint = Paint()
       ..color = const Color(0xFF9BAAC1).withOpacity(.28)
       ..strokeWidth = 1;
