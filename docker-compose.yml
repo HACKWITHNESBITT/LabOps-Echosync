@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: echosync_postgres
+    environment:
+      POSTGRES_USER: echosync
+      POSTGRES_PASSWORD: echosync
+      POSTGRES_DB: echosync
+    ports:
+      - "5544:5432"
+    volumes:
+      - echosync_pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echosync -d echosync"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: echosync_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "5545:6379"
+    volumes:
+      - echosync_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: echosync_backend
+    environment:
+      ECHO_HTTP_ADDR: ":8080"
+      ECHO_REDIS_ADDR: "redis:6379"
+      ECHO_PG_DSN: "postgres://echosync:echosync@postgres:5432/echosync?sslmode=disable"
+      ECHO_OLLAMA_URL: "http://host.docker.internal:11434"
+      ECHO_OLLAMA_MODEL: "llama3:8b"
+      ECHO_MATCH_RADIUS_M: "15"
+      ECHO_MATCH_TTL_S: "900"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  echosync_pgdata:
+  echosync_redisdata:

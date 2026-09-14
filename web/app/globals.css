@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes sweep-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+
+.animate-sweep  { animation: sweep-rotate linear infinite; }
+.animate-fadeup { animation: fade-in-up 220ms ease-out both; }
+.animate-blink  { animation: blink-dot 1.6s ease-in-out infinite; }
+
+html, body { height: 100%; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #2b3a52; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }

@@ -1,0 +1,24 @@
+.env
+*.log
+.DS_Store
+
+# Go
+backend/bin/
+backend/echosync-server
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+
+# Flutter
+.dart_tool/
+.packages
+build/
+ios/Pods/
+android/.gradle/
+
+# Editor
+.idea/
+.vscode/
