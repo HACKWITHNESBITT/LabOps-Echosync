@@ -72,7 +72,7 @@ func run(ctx context.Context, cfg config.Config) error {
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           logRequests(mux),
+		Handler:           withCORS(logRequests(mux)),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -146,6 +146,22 @@ func pickRedactor(cfg config.Config) privacy.Redactor {
 		return privacy.NewRuleRedactor()
 	}
 	return privacy.NewRuleRedactor()
+}
+
+// withCORS adds permissive CORS headers so the browser-based command center
+// (and Flutter web) running on a different origin can reach this API.
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // logRequests is a tiny access-log middleware.

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -47,16 +48,27 @@ type Store struct {
 }
 
 func New(ctx context.Context, cfg config.RedisConfig, ttl time.Duration) (*Store, error) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.Addr,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
+	rdb := redis.NewClient(redisOptions(cfg))
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("geo store: redis ping: %w", err)
 	}
 	slog.Info("geo store connected", "addr", cfg.Addr, "ttl", ttl)
 	return &Store{rdb: rdb, ttl: ttl, latencies: make([]time.Duration, 0, maxLatencySamples)}, nil
+}
+
+// redisOptions builds client options from ECHO_REDIS_ADDR. Managed providers
+// (e.g. Render Key Value) hand out a full redis:// URL rather than host:port,
+// so a URL is parsed instead of being passed to the Addr field.
+func redisOptions(cfg config.RedisConfig) *redis.Options {
+	if strings.Contains(cfg.Addr, "://") {
+		if opt, err := redis.ParseURL(cfg.Addr); err == nil {
+			if cfg.DB != 0 {
+				opt.DB = cfg.DB
+			}
+			return opt
+		}
+	}
+	return &redis.Options{Addr: cfg.Addr, Password: cfg.Password, DB: cfg.DB}
 }
 
 // UpsertPosition records a user's live location and last-seen timestamp.

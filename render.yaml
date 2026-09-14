@@ -1,0 +1,79 @@
+# Render Blueprint for EchoSync (https://github.com/HACKWITHNESBITT/LabOps-Echosync)
+#
+# Deploys:
+#   - Render Postgres (pgvector)          -> echosync-db
+#   - Render Key Value (Redis)            -> echosync-redis
+#   - Go backend API / WebSocket server   -> echosync-backend
+#   - Next.js command center              -> echosync-command-center
+#
+# One manual step after the first sync:
+#   Render Dashboard -> echosync-db -> "Run SQL" -> paste the contents of
+#   infra/postgres/init.sql. Render Postgres has no init-script hook; the
+#   backend creates the `vector` extension itself but not the tables.
+#
+# Optional secrets (both prompted on first sync via `sync: false`, leave
+# blank to skip):
+#   - GROQ_API_KEY           cloud PII firewall (falls back to rule-based)
+#   - SPEECHMATICS_API_KEY   live audio transcription
+
+databases:
+  - name: echosync-db
+    plan: free
+    postgresMajorVersion: "16"
+    ipAllowList: []
+
+services:
+  # ---- Redis -----------------------------------------------------------------
+  - type: keyvalue
+    name: echosync-redis
+    plan: free
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  # ---- Go backend API ---------------------------------------------------------
+  - type: web
+    name: echosync-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ECHO_HTTP_ADDR
+        value: :8080
+      - key: ECHO_PG_DSN
+        fromDatabase:
+          name: echosync-db
+          property: connectionString
+      - key: ECHO_REDIS_ADDR
+        fromService:
+          type: keyvalue
+          name: echosync-redis
+          property: connectionString
+      - key: ECHO_PII_MODE
+        value: rule
+      - key: ECHO_EMBED_PROVIDER
+        value: hash
+      - key: ECHO_MATCH_RADIUS_M
+        value: "15"
+      - key: ECHO_MATCH_TTL_S
+        value: "900"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SPEECHMATICS_API_KEY
+        sync: false
+
+  # ---- Next.js command center ---------------------------------------------------
+  - type: web
+    name: echosync-command-center
+    runtime: node
+    rootDir: web
+    plan: free
+    buildCommand: NEXT_PUBLIC_API_URL="https://$BACKEND_PUBLIC_HOST" npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: BACKEND_PUBLIC_HOST
+        fromService:
+          name: echosync-backend
+          type: web
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
