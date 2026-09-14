@@ -111,10 +111,31 @@ python3 -m http.server 3001 --directory build/web   # http://localhost:3001
 
 Or run on a connected device/emulator with `flutter run`.
 
+Live mic capture: the mic button streams pcm_s16le @ 16 kHz mono to the
+backend's `WS /v1/audio/stream` and shows live captions. Mic streaming works
+on Android/iOS/desktop builds; on Flutter **web** (browser cannot emit raw
+PCM) the button shows a hint and the radar demo still runs.
+
 ### 7. End-to-end demo
 ```bash
 bash scripts/demo.sh   # requires the backend on :8080 and jq
 ```
+
+### 7b. Audio pipeline hands-on (WAV upload)
+```bash
+# Transcribe an uploaded clip -> scrub PII -> register presence -> match:
+curl -XPOST 'http://127.0.0.1:8080/v1/audio?user_id=kim&lat=-1.282&lng=36.821' \
+  -H 'Content-Type: audio/wav' --data-binary @/path/to/speech.wav
+```
+- One-shot uploads are transcribed with Groq Whisper (`whisper-large-v3-turbo`,
+  falls back to a Speechmatics short session for raw PCM).
+- Live streaming (mic, WS) runs through Speechmatics real-time
+  (`wss://eu.rt.speechmatics.com/v2`) with final transcripts debounced and
+  fed into the same scrub -> presence -> match engine.
+- `GROQ_MODEL` selects the cloud Llama-class firewall (default
+  `openai/gpt-oss-120b`); `ECHO_PII_MODE=auto` prefers it, then Ollama/rule.
+- Privacy pipeline events stream over `/ws?user_id=dashboard` and
+  `/v1/pipeline/events` for the command center.
 
 ### Service summary
 | Service              | URL / Port        |

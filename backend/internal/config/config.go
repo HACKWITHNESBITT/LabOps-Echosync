@@ -10,16 +10,18 @@ import (
 )
 
 type Config struct {
-	HTTPAddr   string
-	Redis      RedisConfig
-	Postgres   PostgresConfig
-	Ollama     OllamaConfig
-	Embed      EmbedConfig
-	Match      MatchConfig
-	PII        PIIConfig
-	LogLevel   string
-	ShowRaw    bool
-	StoreStats bool
+	HTTPAddr    string
+	Redis       RedisConfig
+	Postgres    PostgresConfig
+	Ollama      OllamaConfig
+	Groq        GroqConfig
+	Speechmatics SpeechmaticsConfig
+	Embed       EmbedConfig
+	Match       MatchConfig
+	PII         PIIConfig
+	LogLevel    string
+	ShowRaw     bool
+	StoreStats  bool
 }
 
 type RedisConfig struct {
@@ -39,6 +41,26 @@ type OllamaConfig struct {
 	Model      string
 	Timeout    time.Duration
 	BaseSystem string
+}
+
+// GroqConfig drives the cloud Llama-3-8B-class PII firewall (OpenAI-compatible
+// chat completions). The model is configurable because Groq orgs vary in which
+// open-weight models they can access. WhisperModel powers one-shot audio
+// transcription fallback.
+type GroqConfig struct {
+	APIKey      string
+	BaseURL     string
+	Model       string
+	WhisperModel string
+	Timeout     time.Duration
+}
+
+// SpeechmaticsConfig configures the real-time audio streaming client.
+type SpeechmaticsConfig struct {
+	APIKey     string
+	URL        string
+	SampleRate int
+	Language   string
 }
 
 type EmbedConfig struct {
@@ -77,6 +99,19 @@ func Load() Config {
 			Model:      envar("ECHO_OLLAMA_MODEL", "llama3:8b"),
 			Timeout:    time.Duration(envarInt("ECHO_OLLAMA_TIMEOUT_S", 20)) * time.Second,
 			BaseSystem: "You are EchoSync's privacy firewall. You extract non-identifying interest tokens and absolutely never repeat names, emails, phone numbers or other PII.",
+		},
+		Groq: GroqConfig{
+			APIKey:       os.Getenv("GROQ_API_KEY"),
+			BaseURL:      strings.TrimSuffix(envar("GROQ_BASE_URL", "https://api.groq.com/openai/v1"), "/"),
+			Model:        envar("GROQ_MODEL", "openai/gpt-oss-120b"),
+			WhisperModel: envar("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo"),
+			Timeout:      time.Duration(envarInt("GROQ_TIMEOUT_S", 10)) * time.Second,
+		},
+		Speechmatics: SpeechmaticsConfig{
+			APIKey:     os.Getenv("SPEECHMATICS_API_KEY"),
+			URL:        envar("SPEECHMATICS_URL", "wss://eu.rt.speechmatics.com/v2"),
+			SampleRate: envarInt("SPEECHMATICS_SAMPLE_RATE", 16000),
+			Language:   envar("SPEECHMATICS_LANGUAGE", "en"),
 		},
 		Embed: EmbedConfig{
 			Provider: envar("ECHO_EMBED_PROVIDER", "hash"),

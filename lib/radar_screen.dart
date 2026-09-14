@@ -41,16 +41,8 @@ class _RadarScreenState extends State<RadarScreen>
   bool notificationVisible = false;
   bool linked = false;
   Timer? _notificationTimer;
-  Timer? _presenceTimer;
   bool _ownsClient = false;
   int? _lastLatencyMs;
-
-  static const _demoInterests = [
-    'RUST PROGRAMMING',
-    'FORMULA 1',
-    'MACHINE LEARNING',
-    'HIKING',
-  ];
 
   @override
   void initState() {
@@ -101,12 +93,8 @@ class _RadarScreenState extends State<RadarScreen>
         onError: (_) {},
       );
       client.connect();
-
-      // Standalone mode: beacon ourselves on the radar every few seconds.
-      _presenceTimer = Timer.periodic(const Duration(seconds: 6), (_) {
-        client.sendPresence(37.7749295, -122.4194155, _demoInterests);
-      });
-      client.sendPresence(37.7749295, -122.4194155, _demoInterests);
+      // Standalone mode: request latest radar sweep from backend
+      client.requestScan();
     }
   }
 
@@ -151,7 +139,6 @@ class _RadarScreenState extends State<RadarScreen>
   @override
   void dispose() {
     _notificationTimer?.cancel();
-    _presenceTimer?.cancel();
     _sub?.cancel();
     if (_ownsClient) client.dispose();
     radarController.dispose();
@@ -309,7 +296,7 @@ class MatchNotification extends StatelessWidget {
           border: Border.all(color: const Color(0xFF7C8A9D), width: .8),
           borderRadius: BorderRadius.circular(4),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(.35), blurRadius: 18),
+            BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 18),
           ],
         ),
 
@@ -375,43 +362,79 @@ class RadarMatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final m = match;
-    final interest = m?.sharedTokens.firstOrNull ?? 'Rust Programming';
-    final peer = m?.peerUserId ?? 'USR_7x2';
-    final dist = m?.distanceM ?? 6.0;
+    if (match == null) {
+      return Container(
+        padding: const EdgeInsets.only(top: 14),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFF778296), width: 1)),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'RADAR ACTIVE',
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2FE6A7),
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Scanning for shared interests…',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Listening for peers within 15m radius',
+              style: TextStyle(fontSize: 11, color: Color(0xFF9BA5B5)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final m = match!;
+    final interest = m.sharedTokens.isNotEmpty
+        ? m.sharedTokens.join(' · ')
+        : 'Shared interest match';
+    final peer = m.peerUserId;
+    final dist = m.distanceM;
 
     return Container(
       padding: const EdgeInsets.only(top: 14),
-
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: Color(0xFF778296), width: 1)),
       ),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            m == null
-                ? 'scanning for shared interests…'
-                : 'haptic triggered · match nearby',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF9BA5B5)),
+          const Text(
+            'HAPTIC TRIGGERED · MATCH NEARBY',
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFE8899D),
+            ),
           ),
-
-          const SizedBox(height: 8),
-
+          const SizedBox(height: 6),
           Text(
             interest,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
           ),
-
           const SizedBox(height: 4),
-
           Text(
-            '$peer · ~${dist.round()} m away',
+            '$peer · ~${dist.round()} m away · ${(m.similarity * 100).round()}% match',
             style: const TextStyle(fontSize: 11, color: Color(0xFF9BA5B5)),
           ),
         ],
@@ -444,7 +467,7 @@ class RadarPainter extends CustomPainter {
     final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFE7849B).withOpacity(.14),
+          const Color(0xFFE7849B).withValues(alpha: .14),
           Colors.transparent,
         ],
       ).createShader(Rect.fromCircle(center: center, radius: radius));
@@ -453,7 +476,7 @@ class RadarPainter extends CustomPainter {
 
     // Rings
     final circlePaint = Paint()
-      ..color = const Color(0xFF9BAAC1).withOpacity(.45)
+      ..color = const Color(0xFF9BAAC1).withValues(alpha: .45)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -463,7 +486,7 @@ class RadarPainter extends CustomPainter {
 
     // Grid
     final gridPaint = Paint()
-      ..color = const Color(0xFF9BAAC1).withOpacity(.28)
+      ..color = const Color(0xFF9BAAC1).withValues(alpha: .28)
       ..strokeWidth = 1;
 
     canvas.drawLine(Offset(center.dx - radius, center.dy),
@@ -494,7 +517,7 @@ class RadarPainter extends CustomPainter {
 
     // Live targets: placed by the server (geo -> radar x/y link endpoint) and
     // connected with a dotted vector link, exactly like the web command center.
-    final matched = hasMatches ? Color(0xFFE78A9F) : const Color(0xFFE2E8F0);
+    final matched = hasMatches ? const Color(0xFFE78A9F) : const Color(0xFFE2E8F0);
     for (final t in targets) {
       final link = t.link.to;
       final lx = link.isNotEmpty ? link[0] : 0.0;

@@ -5,8 +5,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +17,7 @@ import (
 	"time"
 
 	"github.com/echosync/backend/internal/api"
+	"github.com/echosync/backend/internal/audio"
 	"github.com/echosync/backend/internal/config"
 	"github.com/echosync/backend/internal/embed"
 	"github.com/echosync/backend/internal/geo"
@@ -60,7 +64,7 @@ func run(ctx context.Context, cfg config.Config) error {
 	embedder := embed.New(cfg.Embed.Provider, cfg.Embed.Model, cfg.Ollama.URL)
 
 	// --- server (hub owns engine) -------------------------------------------
-	server := api.NewServer(cfg, geoStore, vecStore, pipe, embedder, gen)
+	server := api.NewServer(cfg, geoStore, vecStore, pipe, embedder, gen, audio.NewHandler(cfg.Speechmatics, cfg.Groq))
 	pipe.SetEvents(server.EventSink())
 
 	mux := http.NewServeMux()
@@ -108,15 +112,28 @@ func run(ctx context.Context, cfg config.Config) error {
 }
 
 // pickRedactor selects the PII firewall: rule-based always available; llama
-// mode enforces the edge model; auto prefers llama and falls back to rule.
+// mode enforces the edge model; auto prefers groq, then llama, then rule.
 func pickRedactor(cfg config.Config) privacy.Redactor {
 	llama := privacy.NewLlamaRedactor(cfg.Ollama, cfg.PII.OllamaScrubPrompt)
+	groq := privacy.NewGroqRedactor(cfg.Groq, cfg.PII.OllamaScrubPrompt)
 	switch cfg.PII.Mode {
 	case "rule":
 		return privacy.NewRuleRedactor()
 	case "llama":
 		return llama
+	case "groq":
+		return groq
 	case "auto":
+		if cfg.Groq.APIKey != "" {
+			pingCtx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+			err := groq.Ping(pingCtx)
+			cancel()
+			if err == nil {
+				slog.Info("cloud Llama-class privacy firewall reachable", "model", cfg.Groq.Model)
+				return groq
+			}
+			slog.Warn("Groq privacy firewall not reachable — falling through", "err", err)
+		}
 		pingCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err := llama.Ping(pingCtx)
@@ -151,3 +168,22 @@ func (s *statusWriter) WriteHeader(code int) {
 	s.status = code
 	s.ResponseWriter.WriteHeader(code)
 }
+
+// Hijack forwards WebSocket upgrades through the access-log wrapper.
+func (s *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := s.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("response does not implement http.Hijacker")
+	}
+	return h.Hijack()
+}
+
+// Flush forwards streaming writes.
+func (s *statusWriter) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets Go's ResponseController reach the underlying writer.
+func (s *statusWriter) Unwrap() http.ResponseWriter { return s.ResponseWriter }
