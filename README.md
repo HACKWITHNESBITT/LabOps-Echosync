@@ -42,5 +42,85 @@ EchoSync is a privacy-first, low-latency proximity discovery system that passive
 ### Prerequisites
 * **Go** `1.22+`
 * **Flutter SDK** `3.19+`
-* **Node.js** `20+` & **pnpm**
+* **Node.js** `20+` & **pnpm** (`npm` works too)
 * **Docker** & **Docker Compose**
+
+### 1. Environment configuration
+```bash
+cp .env.example .env
+```
+
+The Go server reads its configuration from environment variables, so export them
+before running the backend:
+
+```bash
+set -a; . ./.env; set +a
+```
+
+> **Ollama (Llama-3-8B) is optional.** When unreachable, the server automatically
+> falls back to the deterministic rule-based PII firewall and template icebreakers.
+
+### 2. Static analysis
+```bash
+flutter pub get
+flutter analyze
+```
+
+### 3. Start the infrastructure
+```bash
+docker compose up -d postgres redis   # postgres :5544, redis :5545
+```
+
+### 4. Start the backend
+```bash
+set -a; . ./.env; set +a
+cd backend && go run ./cmd/server     # listens on :8080
+```
+
+Verify it is up:
+
+```bash
+curl http://127.0.0.1:8080/health
+```
+
+### 5. Start the command center (Next.js / React)
+```bash
+cd web
+npm install
+npm run build
+npm start                             # http://localhost:3000
+```
+
+The command center talks to the backend at `127.0.0.1:8080` by default. Override it
+with `NEXT_PUBLIC_API_URL` **before** running `npm run build`.
+
+### 6. Start the Flutter app
+One-time web platform setup (adds Flutter web files next to the Next.js command
+center — do not run `flutter create .` again after this):
+
+```bash
+flutter create . --platforms web
+```
+
+Build and serve:
+
+```bash
+flutter build web --release
+python3 -m http.server 3001 --directory build/web   # http://localhost:3001
+```
+
+Or run on a connected device/emulator with `flutter run`.
+
+### 7. End-to-end demo
+```bash
+bash scripts/demo.sh   # requires the backend on :8080 and jq
+```
+
+### Service summary
+| Service              | URL / Port        |
+| -------------------- | ----------------- |
+| Backend API          | http://127.0.0.1:8080 |
+| Next.js command center | http://127.0.0.1:3000 |
+| Flutter app (web)    | http://127.0.0.1:3001 |
+| PostgreSQL           | localhost:5544    |
+| Redis                | localhost:5545    |
