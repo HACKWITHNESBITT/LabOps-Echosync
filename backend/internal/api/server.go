@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/echosync/backend/internal/audio"
 	"github.com/echosync/backend/internal/config"
 	"github.com/echosync/backend/internal/embed"
 	"github.com/echosync/backend/internal/geo"
@@ -28,6 +29,7 @@ type Server struct {
 	emb     embed.Embedder
 	engine  *match.Engine
 	hub     *Hub
+	audio   *audio.Handler
 
 	eventsMu sync.Mutex
 	events   []model.ScrubEvent // ring for command-center polling
@@ -37,6 +39,7 @@ type Server struct {
 func NewServer(cfg config.Config,
 	g *geo.Store, ps *store.VectorStore,
 	pipe *privacy.Pipeline, emb embed.Embedder, gen *match.Generator,
+	aud *audio.Handler,
 ) *Server {
 	s := &Server{
 		cfg:       cfg,
@@ -44,6 +47,7 @@ func NewServer(cfg config.Config,
 		vec:       ps,
 		privacy:   pipe,
 		emb:       emb,
+		audio:     aud,
 		hub:       NewHub(30 * time.Second),
 		eventsMax: 100,
 	}
@@ -83,6 +87,7 @@ func (s *Server) recordEvent(ev privacy.Event) {
 
 // Routes registers every endpoint on the given mux.
 func (s *Server) Routes(mux *http.ServeMux) {
+	mux.HandleFunc("/", s.root)
 	mux.HandleFunc("/health", s.health)
 	mux.HandleFunc("/metrics", s.metrics)
 	mux.HandleFunc("/ws", s.ws)
@@ -93,6 +98,33 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/icebreaker", s.icebreaker)
 	mux.HandleFunc("/v1/radar/", s.radar)
 	mux.HandleFunc("/v1/pipeline/events", s.pipelineEvents)
+	mux.HandleFunc("/v1/audio", s.audioOneShot)
+	mux.HandleFunc("/v1/audio/stream", s.audioStream)
+}
+
+func (s *Server) root(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"service":      "echosync-backend",
+		"status":       "ok",
+		"health":       "/health",
+		"metrics":      "/metrics",
+		"pipeline":     s.privacy.ActivePipeline(),
+		"endpoints": map[string]string{
+			"scrub":           "POST /v1/scrub",
+			"presence":        "POST | DELETE /v1/presence[/{user_id}]",
+			"matches":         "GET /v1/matches/{user_id}",
+			"icebreaker":      "POST /v1/icebreaker",
+			"radar":           "GET /v1/radar/{user_id}",
+			"pipeline_events": "GET /v1/pipeline/events",
+			"websocket":       "WS /ws?user_id={user_id}",
+			"audio":           "POST /v1/audio?user_id=..&lat=..&lng=.. (WAV body)",
+			"audio_stream":    "WS /v1/audio/stream?user_id=.. (binary PCM)",
+		},
+	})
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {

@@ -15,6 +15,7 @@ web/.env.local
 # Flutter
 .dart_tool/
 .packages
+.flutter-plugins-dependencies
 build/
 ios/Pods/
 android/.gradle/

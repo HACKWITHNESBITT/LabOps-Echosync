@@ -20,6 +20,7 @@ import (
 const (
 	PipelineRule  = "rule"
 	PipelineLlama = "llama"
+	PipelineGroq  = "groq"
 )
 
 // ScrubResult is the fully sanitized output of the firewall. It contains no

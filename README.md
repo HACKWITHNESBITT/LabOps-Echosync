@@ -42,5 +42,106 @@ EchoSync is a privacy-first, low-latency proximity discovery system that passive
 ### Prerequisites
 * **Go** `1.22+`
 * **Flutter SDK** `3.19+`
-* **Node.js** `20+` & **pnpm**
+* **Node.js** `20+` & **pnpm** (`npm` works too)
 * **Docker** & **Docker Compose**
+
+### 1. Environment configuration
+```bash
+cp .env.example .env
+```
+
+The Go server reads its configuration from environment variables, so export them
+before running the backend:
+
+```bash
+set -a; . ./.env; set +a
+```
+
+> **Ollama (Llama-3-8B) is optional.** When unreachable, the server automatically
+> falls back to the deterministic rule-based PII firewall and template icebreakers.
+
+### 2. Static analysis
+```bash
+flutter pub get
+flutter analyze
+```
+
+### 3. Start the infrastructure
+```bash
+docker compose up -d postgres redis   # postgres :5544, redis :5545
+```
+
+### 4. Start the backend
+```bash
+set -a; . ./.env; set +a
+cd backend && go run ./cmd/server     # listens on :8080
+```
+
+Verify it is up:
+
+```bash
+curl http://127.0.0.1:8080/health
+```
+
+### 5. Start the command center (Next.js / React)
+```bash
+cd web
+npm install
+npm run build
+npm start                             # http://localhost:3000
+```
+
+The command center talks to the backend at `127.0.0.1:8080` by default. Override it
+with `NEXT_PUBLIC_API_URL` **before** running `npm run build`.
+
+### 6. Start the Flutter app
+One-time web platform setup (adds Flutter web files next to the Next.js command
+center — do not run `flutter create .` again after this):
+
+```bash
+flutter create . --platforms web
+```
+
+Build and serve:
+
+```bash
+flutter build web --release
+python3 -m http.server 3001 --directory build/web   # http://localhost:3001
+```
+
+Or run on a connected device/emulator with `flutter run`.
+
+Live mic capture: the mic button streams pcm_s16le @ 16 kHz mono to the
+backend's `WS /v1/audio/stream` and shows live captions. Mic streaming works
+on Android/iOS/desktop builds; on Flutter **web** (browser cannot emit raw
+PCM) the button shows a hint and the radar demo still runs.
+
+### 7. End-to-end demo
+```bash
+bash scripts/demo.sh   # requires the backend on :8080 and jq
+```
+
+### 7b. Audio pipeline hands-on (WAV upload)
+```bash
+# Transcribe an uploaded clip -> scrub PII -> register presence -> match:
+curl -XPOST 'http://127.0.0.1:8080/v1/audio?user_id=kim&lat=-1.282&lng=36.821' \
+  -H 'Content-Type: audio/wav' --data-binary @/path/to/speech.wav
+```
+- One-shot uploads are transcribed with Groq Whisper (`whisper-large-v3-turbo`,
+  falls back to a Speechmatics short session for raw PCM).
+- Live streaming (mic, WS) runs through Speechmatics real-time
+  (`wss://eu.rt.speechmatics.com/v2`) with final transcripts debounced and
+  fed into the same scrub -> presence -> match engine.
+- `GROQ_MODEL` selects the cloud Llama-class firewall (default
+  `openai/gpt-oss-120b`); `ECHO_PII_MODE=auto` prefers it, then Ollama/rule.
+- Privacy pipeline events stream over `/ws?user_id=dashboard` and
+  `/v1/pipeline/events` for the command center.
+
+### Service summary
+| Service              | URL / Port        |
+| -------------------- | ----------------- |
+| Backend API          | http://127.0.0.1:8080 |
+| Next.js command center | http://127.0.0.1:3000 |
+| Flutter app (web)    | http://127.0.0.1:3001 |
+| PostgreSQL           | localhost:5544    |
+| Redis                | localhost:5545    |

@@ -9,8 +9,9 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/echosync_models.dart';
 
-/// Default dev backend (matches docker-compose + `make dev`).
-const String kDefaultApiHost = '10.0.2.2'; // Android emulator -> host loopback
+/// Default dev backend for the Android emulator (10.0.2.2 -> host loopback).
+/// Flutter web/desktop builds override `host` in main.dart with 127.0.0.1.
+const String kDefaultApiHost = '10.0.2.2';
 const int kDefaultApiPort = 8080;
 
 class EchoSyncClient {
